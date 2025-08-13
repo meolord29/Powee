@@ -1,5 +1,6 @@
 import polars as pl
 import csv
+from datetime import datetime, timedelta
 
 class Analyser: 
     def __init__(self, csv_path: str):
@@ -42,21 +43,39 @@ class Analyser:
         self.df = df_copy
         return 0
 
-    def get_total_time_range(self):
-        return self.df.select(["StartTime"]).min(), self.df.select(["EndTime"]).max()
-
-    def get_total_consumption(self):
+    def get_total_consumption(self) -> float:
         return self.df.select(["UnitConsumption"]).sum()
+    
+    def get_consumption_by_date(self, startTime: datetime, endTime: datetime) -> float:
+        df_filtered = self.get_df_by_time_range(startTime, endTime)
+        
+        return df_filtered.select(["UnitConsumption"]).sum()
 
-    def get_total_time(self):
-        return self.df.select(["EndTime"]).max() - self.df.select(["StartTime"]).min()
+    def get_df_by_time_range(self, startTime: datetime, endTime: datetime) -> pl.DataFrame:
+        df_filtered = self.df.filter(
+            (pl.col("StartTime") >= startTime) & (pl.col("EndTime") <= endTime)
+            )
+        
+        return df_filtered
 
+    def get_total_time_by_date(self, startTime: datetime, endTime: datetime) -> timedelta:
+        df_filtered = self.get_df_by_time_range(startTime, endTime)
+        maxTime, minTime = df_filtered.select(["StartTime"]).max(), df_filtered.select(["EndTime"]).min()
+        return maxTime - minTime
 
+    def get_total_time_range(self) -> tuple[datetime, datetime]:
+        return self.df.select(["StartTime"]).max(), self.df.select(["EndTime"]).min()
+
+    def get_total_time(self) -> timedelta:
+        maxTime, minTime = self.get_total_time_range()
+        return maxTime - minTime, (maxTime, minTime)
 
 if __name__ == "__main__":
-    clpAnalyzer = Analyser("./test_files/consumption_history.csv")
-    clpAnalyzer.csv_clip_csv()
-    clpAnalyzer.csv_parse_time()
-    print(clpAnalyzer.get_total_time_range())
-    print(clpAnalyzer.get_total_consumption())
-    print(clpAnalyzer.get_total_time())
+    clp_analyzer = Analyser("./test_files/consumption_history.csv")
+    clp_analyzer.csv_clip_csv()
+    clp_analyzer.csv_parse_time()
+    print(clp_analyzer.get_total_time_range())
+    print(clp_analyzer.get_total_consumption())
+    print(clp_analyzer.get_total_time())
+    print(clp_analyzer.get_consumption_by_date(datetime(2025, 5, 24, 0, 0), datetime(2025, 6, 1, 0, 0)))
+    print(clp_analyzer.get_total_time_by_date(datetime(2025, 5, 24, 0, 0), datetime(2025, 6, 1, 0, 0)))
